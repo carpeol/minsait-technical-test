@@ -16,6 +16,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>adapters</module>
+        <module>product-repository-rest</module>
     </modules>
 </project>
