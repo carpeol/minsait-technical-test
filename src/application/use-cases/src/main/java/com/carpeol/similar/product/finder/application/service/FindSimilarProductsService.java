@@ -35,8 +35,7 @@ public class FindSimilarProductsService implements FindSimilarProductsUseCase {
 
         List<ProductId> similarProductIds = productRepository.findSimilarProductIds(query.productId());
 
-        return similarProductIds.stream()
-                .map(productRepository::getById)
+        return productRepository.findByIds(similarProductIds).stream()
                 .map(this::toSimilarProduct)
                 .toList();
     }

@@ -18,6 +18,9 @@ import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -25,7 +28,8 @@ import static org.mockito.Mockito.*;
 class ProductRepositoryRestAdapterTest {
 
     private final DefaultApi productApi = mock(DefaultApi.class);
-    private final ProductRepositoryRestAdapter repository = new ProductRepositoryRestAdapter(productApi);
+    private final ProductRepositoryRestAdapter repository =
+            new ProductRepositoryRestAdapter(new ProductApiGateway(productApi));
 
     @Test
     void findsProductAndMapsGeneratedModelToTheDomainModel() {
@@ -56,6 +60,42 @@ class ProductRepositoryRestAdapterTest {
     }
 
     @Test
+    void findsSimilarProductsConcurrentlyInRequestedOrderAndSkipsMissingDetails() {
+        when(productApi.getProductProductId("2")).thenReturn(ResponseEntity.ok(productDetail("2", "First")));
+        when(productApi.getProductProductId("3")).thenReturn(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+        when(productApi.getProductProductId("4")).thenReturn(ResponseEntity.ok(productDetail("4", "Last")));
+
+        List<Product> products = repository.findByIds(List.of(
+                new ProductId(2L),
+                new ProductId(3L),
+                new ProductId(4L)));
+
+        assertEquals(List.of(
+                new Product(new ProductId(2L), new ProductName("First"),
+                        new ProductPrice(new BigDecimal("9.99")), new ProductAvailability(true)),
+                new Product(new ProductId(4L), new ProductName("Last"),
+                        new ProductPrice(new BigDecimal("9.99")), new ProductAvailability(true))), products);
+    }
+
+    @Test
+    void retrievesProductDetailsConcurrently() {
+        CountDownLatch started = new CountDownLatch(2);
+        AtomicBoolean bothRequestsRanConcurrently = new AtomicBoolean(true);
+        when(productApi.getProductProductId(anyString())).thenAnswer(invocation -> {
+            String id = invocation.getArgument(0);
+            started.countDown();
+            if (!started.await(2, TimeUnit.SECONDS)) {
+                bothRequestsRanConcurrently.set(false);
+            }
+            return ResponseEntity.ok(productDetail(id, "Product " + id));
+        });
+
+        repository.findByIds(List.of(new ProductId(2L), new ProductId(3L)));
+
+        assertTrue(bothRequestsRanConcurrently.get(), "Product detail requests should overlap");
+    }
+
+    @Test
     void wrapsTransportErrorsWhileFindingProduct() {
         ResourceAccessException cause = new ResourceAccessException("Connection refused");
         when(productApi.getProductProductId("1")).thenThrow(cause);
@@ -81,6 +121,18 @@ class ProductRepositoryRestAdapterTest {
     }
 
     @Test
+    void wrapsInvalidProductDetailsReturnedByTheProductApi() {
+        when(productApi.getProductProductId("1"))
+                .thenReturn(ResponseEntity.ok(productDetail("invalid", "Shirt")));
+
+        ProductRepositoryError exception = assertThrows(
+                ProductRepositoryError.class,
+                () -> repository.findById(new ProductId(1L)));
+
+        assertEquals("Invalid product details returned for ID: 1", exception.getMessage());
+    }
+
+    @Test
     void preservesTheOrderFromTheGeneratedClient() {
         when(productApi.getProductSimilarids("1"))
                 .thenReturn(ResponseEntity.ok(new LinkedHashSet<>(List.of("2", "3", "4"))));
@@ -101,6 +153,18 @@ class ProductRepositoryRestAdapterTest {
 
         assertEquals("Product API returned status 500 INTERNAL_SERVER_ERROR while retrieving similar product IDs for ID: 1",
                 exception.getMessage());
+    }
+
+    @Test
+    void wrapsInvalidSimilarProductIdsReturnedByTheProductApi() {
+        when(productApi.getProductSimilarids("1"))
+                .thenReturn(ResponseEntity.ok(new LinkedHashSet<>(List.of("not-a-number"))));
+
+        ProductRepositoryError exception = assertThrows(
+                ProductRepositoryError.class,
+                () -> repository.findSimilarProductIds(new ProductId(1L)));
+
+        assertEquals("Invalid similar product IDs returned for ID: 1", exception.getMessage());
     }
 
     @Test
