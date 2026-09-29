@@ -32,8 +32,8 @@ services:
       - "5000:5000"
     environment:
       SIMILAR_PRODUCTS_API_BASE_URL: http://simulado
-      SIMILAR_PRODUCTS_API_CONNECT_TIMEOUT: 1s
-      SIMILAR_PRODUCTS_API_READ_TIMEOUT: 3s
+      SIMILAR_PRODUCTS_API_CONNECT_TIMEOUT: 5s
+      SIMILAR_PRODUCTS_API_READ_TIMEOUT: 10s
       SIMILAR_PRODUCTS_CACHE_ENABLED: "true"
       SIMILAR_PRODUCTS_CACHE_TTL: 5m
       SIMILAR_PRODUCTS_CACHE_NOT_FOUND_TTL: 1m
@@ -50,6 +50,7 @@ services:
       - simulado
   k6:
     image: loadimpact/k6:0.28.0
+    platform: linux/amd64
     ports:
       - "6565:6565"
     volumes:

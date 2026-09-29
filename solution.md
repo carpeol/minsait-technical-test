@@ -38,16 +38,16 @@ The application listens on `http://localhost:5000`. Its upstream endpoint defaul
 
 ### Upstream client and cache properties
 
-The REST client uses configurable connection and response timeouts. The defaults are 1 second to establish the connection and 3 seconds to receive a response: connection attempts fail quickly, while the response deadline permits a slow upstream call but bounds the 5- and 50-second delays in the local mock. The 3-second read timeout is slightly above the circuit breaker's 2-second slow-call threshold, so slow responses can be recorded before the request is timed out. Similar-product IDs are cached with Caffeine through Spring's `@Cacheable` abstraction; the cache can be disabled without changing the adapter behavior.
+The REST client uses configurable connection and response timeouts. The defaults are 5 seconds to establish the connection and 10 seconds to receive a response. Similar-product IDs are cached with Caffeine through Spring's `@Cacheable` abstraction; the cache can be disabled without changing the adapter behavior.
 
-| Property | Environment variable | Default |
-| --- | --- | --- |
+| Property | Environment variable | Default                 |
+| --- | --- |-------------------------|
 | `similar-products.api.base-url` | `SIMILAR_PRODUCTS_API_BASE_URL` | `http://localhost:3001` |
-| `similar-products.api.connect-timeout` | `SIMILAR_PRODUCTS_API_CONNECT_TIMEOUT` | `1s` |
-| `similar-products.api.read-timeout` | `SIMILAR_PRODUCTS_API_READ_TIMEOUT` | `3s` |
-| `similar-products.cache.enabled` | `SIMILAR_PRODUCTS_CACHE_ENABLED` | `true` |
-| `similar-products.cache.ttl` | `SIMILAR_PRODUCTS_CACHE_TTL` | `5m` |
-| `similar-products.cache.not-found-ttl` | `SIMILAR_PRODUCTS_CACHE_NOT_FOUND_TTL` | `1m` |
+| `similar-products.api.connect-timeout` | `SIMILAR_PRODUCTS_API_CONNECT_TIMEOUT` | `5s`                    |
+| `similar-products.api.read-timeout` | `SIMILAR_PRODUCTS_API_READ_TIMEOUT` | `10s`                   |
+| `similar-products.cache.enabled` | `SIMILAR_PRODUCTS_CACHE_ENABLED` | `true`                  |
+| `similar-products.cache.ttl` | `SIMILAR_PRODUCTS_CACHE_TTL` | `5m`                    |
+| `similar-products.cache.not-found-ttl` | `SIMILAR_PRODUCTS_CACHE_NOT_FOUND_TTL` | `1m`                    |
 
 The similar-product ID cache stores successful ID lists for the configured TTL. The adapter also negatively caches `existsById` results when the upstream returns `404`, using a separate cache with a 1-minute TTL by default. This avoids repeated upstream checks for a missing requested product while limiting staleness if that product is subsequently created. This negative cache applies only to the initial existence check; missing details for individual similar products are still requested each time and omitted from the successful response. Successful existence checks, product details, and failed upstream requests are not cached, so availability is always fetched fresh.
 
