@@ -83,6 +83,24 @@ class SimilarProductsApiIntegrationTest {
                 .andExpect(content().contentTypeCompatibleWith("text/plain"));
     }
 
+    @Test
+    void exposesTheGeneratedOpenApiContract() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(jsonPath("$.paths['/product/{productId}/similar'].get.operationId")
+                        .value("getProductSimilar"))
+                .andExpect(jsonPath("$.paths['/product/{productId}/similar'].get.responses.200").exists())
+                .andExpect(jsonPath("$.paths['/product/{productId}/similar'].get.responses.404").exists())
+                .andExpect(jsonPath("$.components.schemas.ProductDetail.required").isArray());
+    }
+
+    @Test
+    void servesSwaggerUi() throws Exception {
+        mockMvc.perform(get("/swagger-ui.html"))
+                .andExpect(status().is3xxRedirection());
+    }
+
     private ProductDetail product(String id, String name, String price, boolean availability) {
         return new ProductDetail(id, name, new BigDecimal(price), availability);
     }

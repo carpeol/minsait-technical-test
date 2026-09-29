@@ -6,11 +6,16 @@ import com.carpeol.similar.product.finder.application.result.SimilarProduct;
 import com.carpeol.similar.product.finder.domain.exception.ProductNotFound;
 import com.carpeol.similar.product.finder.domain.model.Product;
 import com.carpeol.similar.product.finder.domain.repository.ProductRepository;
+import com.carpeol.similar.product.finder.domain.valueobject.ProductId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
 
 public class FindSimilarProductsService implements FindSimilarProductsUseCase {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FindSimilarProductsService.class);
 
     private final ProductRepository productRepository;
 
@@ -22,10 +27,15 @@ public class FindSimilarProductsService implements FindSimilarProductsUseCase {
     public List<SimilarProduct> findSimilarProducts(FindSimilarProductsQuery query) {
         Objects.requireNonNull(query, "query must not be null");
 
-        if (!productRepository.existsById(query.productId()))
-            throw new ProductNotFound(query.productId());
+        LOGGER.info("Starting similar product lookup for productId={}", query.productId().value());
 
-        return productRepository.findSimilarProductIds(query.productId()).stream()
+        if (!productRepository.existsById(query.productId())) {
+            throw new ProductNotFound(query.productId());
+        }
+
+        List<ProductId> similarProductIds = productRepository.findSimilarProductIds(query.productId());
+
+        return similarProductIds.stream()
                 .map(productRepository::getById)
                 .map(this::toSimilarProduct)
                 .toList();
