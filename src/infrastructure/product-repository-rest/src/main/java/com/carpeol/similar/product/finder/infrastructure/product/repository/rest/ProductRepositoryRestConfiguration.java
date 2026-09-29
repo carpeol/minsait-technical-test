@@ -42,6 +42,11 @@ public class ProductRepositoryRestConfiguration {
     }
 
     @Bean
+    ProductApiGateway productApiGateway(DefaultApi productApi) {
+        return new ProductApiGateway(productApi);
+    }
+
+    @Bean
     CacheManager cacheManager(SimilarProductIdsCacheProperties properties) {
         if (!properties.enabled()) {
             return new NoOpCacheManager();
@@ -53,7 +58,7 @@ public class ProductRepositoryRestConfiguration {
     }
 
     @Bean
-    ProductRepository productRepository(DefaultApi productApi) {
-        return new ProductRepositoryRestAdapter(productApi);
+    ProductRepository productRepository(ProductApiGateway productApiGateway) {
+        return new ProductRepositoryRestAdapter(productApiGateway);
     }
 }

@@ -49,6 +49,27 @@ The REST client uses configurable connection and response timeouts. Similar-prod
 
 The cache applies only to similar-product ID lookups and caches successful results until the configured TTL expires. Failed requests are not cached.
 
+### Resilience and error responses
+
+The outbound product API is protected by a Resilience4j circuit breaker shared by product-detail, existence, and similar-ID calls. `ProductApiGateway` is a separate Spring bean with `@CircuitBreaker` on each upstream operation, so adapter calls pass through Spring's resilience proxy, including detail lookups made on virtual threads. The infrastructure module includes Spring Boot's AspectJ starter to enable the annotation-based AOP interception. Product-detail `404` responses are converted to normal gateway responses before the annotated method returns, so expected missing products do not count as breaker failures.
+
+With the defaults below, the breaker evaluates a count-based window of 20 calls after at least 10 calls; it opens when at least 50% fail or at least 50% are slower than 2 seconds. While open, calls fail fast and return `503`. After 10 seconds it permits 3 probe calls in the half-open state; successful probes close the breaker and failures reopen it.
+
+| Property | Environment variable | Default |
+| --- | --- | --- |
+| `resilience4j.circuitbreaker.instances.product-api.sliding-window-type` | `RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PRODUCT_API_SLIDING_WINDOW_TYPE` | `COUNT_BASED` |
+| `resilience4j.circuitbreaker.instances.product-api.sliding-window-size` | `RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PRODUCT_API_SLIDING_WINDOW_SIZE` | `20` |
+| `resilience4j.circuitbreaker.instances.product-api.minimum-number-of-calls` | `RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PRODUCT_API_MINIMUM_NUMBER_OF_CALLS` | `10` |
+| `resilience4j.circuitbreaker.instances.product-api.failure-rate-threshold` | `RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PRODUCT_API_FAILURE_RATE_THRESHOLD` | `50` (%) |
+| `resilience4j.circuitbreaker.instances.product-api.slow-call-duration-threshold` | `RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PRODUCT_API_SLOW_CALL_DURATION_THRESHOLD` | `2s` |
+| `resilience4j.circuitbreaker.instances.product-api.slow-call-rate-threshold` | `RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PRODUCT_API_SLOW_CALL_RATE_THRESHOLD` | `50` (%) |
+| `resilience4j.circuitbreaker.instances.product-api.wait-duration-in-open-state` | `RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PRODUCT_API_WAIT_DURATION_IN_OPEN_STATE` | `10s` |
+| `resilience4j.circuitbreaker.instances.product-api.permitted-number-of-calls-in-half-open-state` | `RESILIENCE4J_CIRCUITBREAKER_INSTANCES_PRODUCT_API_PERMITTED_NUMBER_OF_CALLS_IN_HALF_OPEN_STATE` | `3` |
+
+These thresholds are initial operating defaults, not universal capacity targets. Tune them from scenario-specific load-test results and upstream latency/error objectives. The breaker does not retry requests or make a slow upstream call faster; it limits repeated calls while the dependency is failing or slow. The existing connect/read timeouts still bound individual outbound calls.
+
+The REST exception handler keeps `404` for a missing requested product, returns `400` for malformed IDs, and uses RFC 9457 Problem Details for other failures: `502` for invalid/upstream error responses, `503` for an unavailable upstream or open circuit, and `504` for upstream timeouts. Unexpected application failures return a generic `500` Problem Detail without exposing internal exception text.
+
 Useful endpoints:
 
 - API: `http://localhost:5000/product/1/similar`

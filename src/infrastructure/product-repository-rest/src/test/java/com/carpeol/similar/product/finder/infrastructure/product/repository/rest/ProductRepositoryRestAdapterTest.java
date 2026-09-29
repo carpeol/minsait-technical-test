@@ -28,7 +28,8 @@ import static org.mockito.Mockito.*;
 class ProductRepositoryRestAdapterTest {
 
     private final DefaultApi productApi = mock(DefaultApi.class);
-    private final ProductRepositoryRestAdapter repository = new ProductRepositoryRestAdapter(productApi);
+    private final ProductRepositoryRestAdapter repository =
+            new ProductRepositoryRestAdapter(new ProductApiGateway(productApi));
 
     @Test
     void findsProductAndMapsGeneratedModelToTheDomainModel() {
@@ -120,6 +121,18 @@ class ProductRepositoryRestAdapterTest {
     }
 
     @Test
+    void wrapsInvalidProductDetailsReturnedByTheProductApi() {
+        when(productApi.getProductProductId("1"))
+                .thenReturn(ResponseEntity.ok(productDetail("invalid", "Shirt")));
+
+        ProductRepositoryError exception = assertThrows(
+                ProductRepositoryError.class,
+                () -> repository.findById(new ProductId(1L)));
+
+        assertEquals("Invalid product details returned for ID: 1", exception.getMessage());
+    }
+
+    @Test
     void preservesTheOrderFromTheGeneratedClient() {
         when(productApi.getProductSimilarids("1"))
                 .thenReturn(ResponseEntity.ok(new LinkedHashSet<>(List.of("2", "3", "4"))));
@@ -140,6 +153,18 @@ class ProductRepositoryRestAdapterTest {
 
         assertEquals("Product API returned status 500 INTERNAL_SERVER_ERROR while retrieving similar product IDs for ID: 1",
                 exception.getMessage());
+    }
+
+    @Test
+    void wrapsInvalidSimilarProductIdsReturnedByTheProductApi() {
+        when(productApi.getProductSimilarids("1"))
+                .thenReturn(ResponseEntity.ok(new LinkedHashSet<>(List.of("not-a-number"))));
+
+        ProductRepositoryError exception = assertThrows(
+                ProductRepositoryError.class,
+                () -> repository.findSimilarProductIds(new ProductId(1L)));
+
+        assertEquals("Invalid similar product IDs returned for ID: 1", exception.getMessage());
     }
 
     @Test
