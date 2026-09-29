@@ -11,13 +11,8 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.doCallRealMethod;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class ProductRepositoryTest {
 
@@ -49,5 +44,15 @@ class ProductRepositoryTest {
 
         assertEquals("Product not found: ProductId[value=1]", exception.getMessage());
         verify(repository).findById(productId);
+    }
+
+    @Test
+    void checksWhetherProductExistsById() {
+        when(repository.existsById(productId)).thenReturn(true);
+
+        boolean exists = repository.existsById(productId);
+
+        assertTrue(exists);
+        verify(repository).existsById(productId);
     }
 }
