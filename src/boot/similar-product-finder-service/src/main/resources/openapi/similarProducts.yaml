@@ -23,7 +23,11 @@ paths:
               schema:
                  $ref: '#/components/schemas/SimilarProducts'
         '404':
-          description: Product Not found
+          description: Requested product not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
         '400':
           description: Invalid product ID
           content:

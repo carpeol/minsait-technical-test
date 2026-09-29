@@ -82,7 +82,10 @@ class SimilarProductsApiIntegrationTest {
 
         mockMvc.perform(get("/product/4/similar"))
                 .andExpect(status().isNotFound())
-                .andExpect(content().string(""));
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.title").value("Product not found"))
+                .andExpect(jsonPath("$.detail").value("The requested product does not exist."));
 
         verify(externalProductApi).getProductProductId("4");
         verify(externalProductApi, never()).getProductSimilarids("4");
@@ -224,6 +227,8 @@ class SimilarProductsApiIntegrationTest {
                         .value("getProductSimilar"))
                 .andExpect(jsonPath("$.paths['/product/{productId}/similar'].get.responses.200").exists())
                 .andExpect(jsonPath("$.paths['/product/{productId}/similar'].get.responses.404").exists())
+                .andExpect(jsonPath("$.paths['/product/{productId}/similar'].get.responses.404.content['application/problem+json'].schema.$ref")
+                        .value("#/components/schemas/ProblemDetail"))
                 .andExpect(jsonPath("$.paths['/product/{productId}/similar'].get.responses.400").exists())
                 .andExpect(jsonPath("$.paths['/product/{productId}/similar'].get.responses.502").exists())
                 .andExpect(jsonPath("$.paths['/product/{productId}/similar'].get.responses.503").exists())

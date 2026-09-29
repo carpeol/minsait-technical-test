@@ -9,8 +9,8 @@ import java.time.Duration;
 @ConfigurationProperties("similar-products.api")
 public record ProductRepositoryRestProperties(
         URI baseUrl,
-        @DefaultValue("2s") Duration connectTimeout,
-        @DefaultValue("5s") Duration readTimeout) {
+        @DefaultValue("1s") Duration connectTimeout,
+        @DefaultValue("3s") Duration readTimeout) {
 
     public ProductRepositoryRestProperties {
         if (baseUrl == null) {

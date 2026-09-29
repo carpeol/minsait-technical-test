@@ -30,24 +30,25 @@ docker compose up -d simulado influxdb grafana
 Run the application locally:
 
 ```bash
-mvn -pl src/boot/similar-product-finder-service -am spring-boot:run
+cd src/boot/similar-product-finder-service
+mvn spring-boot:run
 ```
 
 The application listens on `http://localhost:5000`. Its upstream endpoint defaults to `http://localhost:3001`; override it with `SIMILAR_PRODUCTS_API_BASE_URL` when needed.
 
 ### Upstream client and cache properties
 
-The REST client uses configurable connection and response timeouts. Similar-product IDs are cached with Caffeine through Spring's `@Cacheable` abstraction; the cache can be disabled without changing the adapter behavior.
+The REST client uses configurable connection and response timeouts. The defaults are 1 second to establish the connection and 3 seconds to receive a response: connection attempts fail quickly, while the response deadline permits a slow upstream call but bounds the 5- and 50-second delays in the local mock. The 3-second read timeout is slightly above the circuit breaker's 2-second slow-call threshold, so slow responses can be recorded before the request is timed out. Similar-product IDs are cached with Caffeine through Spring's `@Cacheable` abstraction; the cache can be disabled without changing the adapter behavior.
 
 | Property | Environment variable | Default |
 | --- | --- | --- |
 | `similar-products.api.base-url` | `SIMILAR_PRODUCTS_API_BASE_URL` | `http://localhost:3001` |
-| `similar-products.api.connect-timeout` | `SIMILAR_PRODUCTS_API_CONNECT_TIMEOUT` | `2s` |
-| `similar-products.api.read-timeout` | `SIMILAR_PRODUCTS_API_READ_TIMEOUT` | `5s` |
+| `similar-products.api.connect-timeout` | `SIMILAR_PRODUCTS_API_CONNECT_TIMEOUT` | `1s` |
+| `similar-products.api.read-timeout` | `SIMILAR_PRODUCTS_API_READ_TIMEOUT` | `3s` |
 | `similar-products.cache.enabled` | `SIMILAR_PRODUCTS_CACHE_ENABLED` | `true` |
 | `similar-products.cache.ttl` | `SIMILAR_PRODUCTS_CACHE_TTL` | `5m` |
 
-The cache applies only to similar-product ID lookups and caches successful results until the configured TTL expires. Failed requests are not cached.
+The cache applies only to similar-product ID lookups and caches successful results until the configured TTL expires. Product details are deliberately not cached because they include availability, which can change between requests; caching them could return stale stock information. Failed requests are not cached.
 
 ### Resilience and error responses
 
@@ -68,7 +69,7 @@ With the defaults below, the breaker evaluates a count-based window of 20 calls 
 
 These thresholds are initial operating defaults, not universal capacity targets. Tune them from scenario-specific load-test results and upstream latency/error objectives. The breaker does not retry requests or make a slow upstream call faster; it limits repeated calls while the dependency is failing or slow. The existing connect/read timeouts still bound individual outbound calls.
 
-The REST exception handler keeps `404` for a missing requested product, returns `400` for malformed IDs, and uses RFC 9457 Problem Details for other failures: `502` for invalid/upstream error responses, `503` for an unavailable upstream or open circuit, and `504` for upstream timeouts. Unexpected application failures return a generic `500` Problem Detail without exposing internal exception text.
+The REST exception handler returns a `404` Problem Detail for a missing requested product, returns `400` for malformed IDs, and uses RFC 9457 Problem Details for other failures: `502` for invalid/upstream error responses, `503` for an unavailable upstream or open circuit, and `504` for upstream timeouts. Missing details for individual similar products continue to be omitted from the successful `200` response. Unexpected application failures return a generic `500` Problem Detail without exposing internal exception text.
 
 Useful endpoints:
 

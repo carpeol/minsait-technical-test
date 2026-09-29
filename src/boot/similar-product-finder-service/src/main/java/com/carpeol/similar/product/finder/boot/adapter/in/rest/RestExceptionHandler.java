@@ -23,9 +23,12 @@ public class RestExceptionHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(RestExceptionHandler.class);
 
     @ExceptionHandler(ProductNotFound.class)
-    ResponseEntity<Void> handleProductNotFound(ProductNotFound exception) {
+    ResponseEntity<ProblemDetail> handleProductNotFound(ProductNotFound exception) {
         LOGGER.warn("Returning 404 for missing product: {}", exception.getMessage());
-        return ResponseEntity.notFound().build();
+        return problem(
+                HttpStatus.NOT_FOUND,
+                "Product not found",
+                "The requested product does not exist.");
     }
 
     @ExceptionHandler(InvalidProductField.class)
