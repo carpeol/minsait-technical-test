@@ -16,6 +16,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>application</module>
+        <module>similar-product-finder-service</module>
     </modules>
 </project>

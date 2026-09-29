@@ -9,6 +9,8 @@ import com.carpeol.similar.product.finder.domain.valueobject.ProductName;
 import com.carpeol.similar.product.finder.domain.valueobject.ProductPrice;
 import com.carpeol.similar.product.finder.infrastructure.product.repository.rest.generated.api.DefaultApi;
 import com.carpeol.similar.product.finder.infrastructure.product.repository.rest.generated.model.ProductDetail;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.HttpClientErrorException;
@@ -19,6 +21,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 public class ProductRepositoryRestAdapter implements ProductRepository {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProductRepositoryRestAdapter.class);
 
     private final DefaultApi productApi;
 
@@ -39,6 +43,7 @@ public class ProductRepositoryRestAdapter implements ProductRepository {
             return Optional.empty();
 
         } catch (RestClientException exception) {
+            LOGGER.error("Product details request failed for productId={}", productId.value(), exception);
             throw new ProductRepositoryError("Error retrieving product details for ID: " + productId.value(), exception);
         }
     }
@@ -53,6 +58,7 @@ public class ProductRepositoryRestAdapter implements ProductRepository {
                     .map(value -> new ProductId(Long.valueOf(value)))
                     .toList();
         } catch (RestClientException exception) {
+            LOGGER.error("Similar product IDs request failed for productId={}", productId.value(), exception);
             throw new ProductRepositoryError("Error retrieving similar product IDs for ID: " + productId.value(), exception);
         }
     }
@@ -70,6 +76,7 @@ public class ProductRepositoryRestAdapter implements ProductRepository {
         } catch (HttpClientErrorException.NotFound exception) {
             return false;
         } catch (RestClientException exception) {
+            LOGGER.error("Product existence check failed for productId={}", productId.value(), exception);
             throw new ProductRepositoryError("Error checking existence for product ID: " + productId.value(), exception);
         }
     }
@@ -93,6 +100,11 @@ public class ProductRepositoryRestAdapter implements ProductRepository {
 
     private void requireSuccessfulStatus(ResponseEntity<?> response, String operation, ProductId productId) {
         if (!response.getStatusCode().is2xxSuccessful()) {
+            LOGGER.error(
+                    "Product API returned status {} while {} for productId={}",
+                    response.getStatusCode(),
+                    operation,
+                    productId.value());
             throw new ProductRepositoryError(
                     "Product API returned status " + response.getStatusCode() + " while " + operation + " for ID: "
                             + productId.value());

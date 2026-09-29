@@ -14,7 +14,7 @@ import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 public class ProductRepositoryRestConfiguration {
 
     @Bean
-    ProductRepository productRepository(ProductRepositoryRestProperties properties) {
+    DefaultApi productApi(ProductRepositoryRestProperties properties) {
         RestClient restClient = RestClient.builder()
                 .baseUrl(properties.baseUrl())
                 .build();
@@ -22,6 +22,11 @@ public class ProductRepositoryRestConfiguration {
                 .builderFor(RestClientAdapter.create(restClient))
                 .build();
 
-        return new ProductRepositoryRestAdapter(proxyFactory.createClient(DefaultApi.class));
+        return proxyFactory.createClient(DefaultApi.class);
+    }
+
+    @Bean
+    ProductRepository productRepository(DefaultApi productApi) {
+        return new ProductRepositoryRestAdapter(productApi);
     }
 }

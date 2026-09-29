@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: similar-product-finder
+
+similar-products:
+  api:
+    base-url: ${SIMILAR_PRODUCTS_API_BASE_URL:http://localhost:3001}
+
+server:
+  port: ${SERVER_PORT:5000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    disable-swagger-default-url: true
