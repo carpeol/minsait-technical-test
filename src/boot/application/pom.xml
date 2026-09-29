@@ -17,7 +17,7 @@
     <dependencies>
         <dependency>
             <groupId>com.carpeol</groupId>
-            <artifactId>infrastructure-adapters</artifactId>
+            <artifactId>product-repository-rest</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
