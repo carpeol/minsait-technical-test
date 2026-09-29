@@ -77,6 +77,22 @@ class SimilarProductsApiIntegrationTest {
     }
 
     @Test
+    void omitsSimilarProductsWhoseDetailsAreNotFound() throws Exception {
+        when(externalProductApi.getProductProductId("1")).thenReturn(ResponseEntity.ok(product("1", "Shirt", "9.99", true)));
+        when(externalProductApi.getProductSimilarids("1"))
+                .thenReturn(ResponseEntity.ok(new LinkedHashSet<>(List.of("2", "3"))));
+        when(externalProductApi.getProductProductId("2")).thenReturn(ResponseEntity.ok(product("2", "Dress", "19.99", true)));
+        when(externalProductApi.getProductProductId("3")).thenReturn(ResponseEntity.notFound().build());
+
+        mockMvc.perform(get("/product/1/similar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value("2"))
+                .andExpect(jsonPath("$[0].name").value("Dress"));
+    }
+
+    @Test
     void exposesPrometheusMetricsThroughActuator() throws Exception {
         mockMvc.perform(get("/actuator/prometheus"))
                 .andExpect(status().isOk())

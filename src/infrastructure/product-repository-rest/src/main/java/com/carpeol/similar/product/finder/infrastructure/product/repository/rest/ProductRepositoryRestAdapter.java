@@ -19,6 +19,10 @@ import org.springframework.web.client.RestClientException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class ProductRepositoryRestAdapter implements ProductRepository {
 
@@ -45,6 +49,22 @@ public class ProductRepositoryRestAdapter implements ProductRepository {
         } catch (RestClientException exception) {
             LOGGER.error("Product details request failed for productId={}", productId.value(), exception);
             throw new ProductRepositoryError("Error retrieving product details for ID: " + productId.value(), exception);
+        }
+    }
+
+    @Override
+    public List<Product> findByIds(List<ProductId> productIds) {
+        Objects.requireNonNull(productIds, "productIds must not be null");
+
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<Optional<Product>>> productFutures = productIds.stream()
+                    .map(productId -> executor.submit(() -> findSimilarProductById(productId)))
+                    .toList();
+
+            return productFutures.stream()
+                    .map(this::getProductResult)
+                    .flatMap(Optional::stream)
+                    .toList();
         }
     }
 
@@ -87,6 +107,32 @@ public class ProductRepositoryRestAdapter implements ProductRepository {
                 new ProductName(productDetail.getName()),
                 new ProductPrice(productDetail.getPrice()),
                 new ProductAvailability(productDetail.getAvailability()));
+    }
+
+    private Optional<Product> getProductResult(Future<Optional<Product>> productFuture) {
+        try {
+            return productFuture.get();
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new ProductRepositoryError("Interrupted while retrieving similar product details", exception);
+        } catch (ExecutionException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new ProductRepositoryError("Error retrieving similar product details", cause);
+        }
+    }
+
+    private Optional<Product> findSimilarProductById(ProductId productId) {
+        Optional<Product> product = findById(productId);
+        if (product.isEmpty()) {
+            LOGGER.warn("Similar product details not found for productId={}", productId.value());
+        }
+        return product;
     }
 
     private <T> T requireResponse(T response) {

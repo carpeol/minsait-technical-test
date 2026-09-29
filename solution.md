@@ -61,11 +61,17 @@ docker compose down
 
 ## Tests
 
-Run all unit, adapter, contract-generation, Spring context, and MockMvc tests:
+Run all unit, adapter, contract-generation, Spring context, and MockMvc tests from the repository root:
 
 ```bash
-mvn clean test
+mvn clean install
 ```
+
+## Similar product lookup behavior
+
+The requested product is checked first; if it does not exist, the endpoint returns `404` and does not request similar IDs. Missing details for a similar-product ID are different: the REST repository adapter logs a warning, omits that product from the result, and continues returning the other available products with `200`.
+
+The application service requests all similar product details through the `ProductRepository` port. The REST adapter resolves those details concurrently using virtual threads, then returns the found products in the original similarity order. This keeps transport-level concurrency in the infrastructure adapter and leaves the use case responsible for application orchestration and response mapping.
 
 ## Performance self-evaluation
 

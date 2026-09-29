@@ -13,10 +13,10 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Answers.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -36,10 +36,10 @@ class FindSimilarProductsServiceTest {
         when(productRepository.existsById(productId)).thenReturn(true);
         when(productRepository.findSimilarProductIds(productId))
                 .thenReturn(List.of(firstSimilarProductId, secondSimilarProductId));
-        when(productRepository.findById(firstSimilarProductId))
-                .thenReturn(Optional.of(product(firstSimilarProductId, "First similar product")));
-        when(productRepository.findById(secondSimilarProductId))
-                .thenReturn(Optional.of(product(secondSimilarProductId, "Second similar product")));
+        when(productRepository.findByIds(List.of(firstSimilarProductId, secondSimilarProductId)))
+                .thenReturn(List.of(
+                        product(firstSimilarProductId, "First similar product"),
+                        product(secondSimilarProductId, "Second similar product")));
 
         List<SimilarProduct> result = service.findSimilarProducts(new FindSimilarProductsQuery(productId));
 
@@ -48,8 +48,24 @@ class FindSimilarProductsServiceTest {
                 new SimilarProduct(3L, "Second similar product", new BigDecimal("12.50"), true)), result);
         verify(productRepository).existsById(productId);
         verify(productRepository).findSimilarProductIds(productId);
-        verify(productRepository).findById(firstSimilarProductId);
-        verify(productRepository).findById(secondSimilarProductId);
+        verify(productRepository).findByIds(List.of(firstSimilarProductId, secondSimilarProductId));
+    }
+
+    @Test
+    void returnsExistingProductsWhenSomeSimilarProductDetailsAreMissing() {
+        ProductId existingSimilarProductId = new ProductId(2L);
+        ProductId missingSimilarProductId = new ProductId(3L);
+        when(productRepository.existsById(productId)).thenReturn(true);
+        when(productRepository.findSimilarProductIds(productId))
+                .thenReturn(List.of(existingSimilarProductId, missingSimilarProductId));
+        when(productRepository.findByIds(List.of(existingSimilarProductId, missingSimilarProductId)))
+                .thenReturn(List.of(product(existingSimilarProductId, "Existing similar product")));
+
+        List<SimilarProduct> result = service.findSimilarProducts(new FindSimilarProductsQuery(productId));
+
+        assertEquals(List.of(
+                new SimilarProduct(2L, "Existing similar product", new BigDecimal("12.50"), true)), result);
+        verify(productRepository).findByIds(List.of(existingSimilarProductId, missingSimilarProductId));
     }
 
     @Test
@@ -62,7 +78,7 @@ class FindSimilarProductsServiceTest {
 
         verify(productRepository).existsById(productId);
         verify(productRepository, never()).findSimilarProductIds(productId);
-        verify(productRepository, never()).findById(productId);
+        verify(productRepository, never()).findByIds(anyList());
     }
 
     private Product product(ProductId id, String name) {

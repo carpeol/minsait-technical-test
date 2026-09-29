@@ -17,5 +17,7 @@ public interface ProductRepository {
 
     List<ProductId> findSimilarProductIds(ProductId productId);
 
+    List<Product> findByIds(List<ProductId> productIds);
+
     boolean existsById(ProductId productId);
 }

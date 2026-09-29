@@ -18,6 +18,9 @@ import java.math.BigDecimal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -53,6 +56,42 @@ class ProductRepositoryRestAdapterTest {
         when(productApi.getProductProductId("5")).thenThrow(notFoundException());
 
         assertEquals(Optional.empty(), repository.findById(new ProductId(5L)));
+    }
+
+    @Test
+    void findsSimilarProductsConcurrentlyInRequestedOrderAndSkipsMissingDetails() {
+        when(productApi.getProductProductId("2")).thenReturn(ResponseEntity.ok(productDetail("2", "First")));
+        when(productApi.getProductProductId("3")).thenReturn(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+        when(productApi.getProductProductId("4")).thenReturn(ResponseEntity.ok(productDetail("4", "Last")));
+
+        List<Product> products = repository.findByIds(List.of(
+                new ProductId(2L),
+                new ProductId(3L),
+                new ProductId(4L)));
+
+        assertEquals(List.of(
+                new Product(new ProductId(2L), new ProductName("First"),
+                        new ProductPrice(new BigDecimal("9.99")), new ProductAvailability(true)),
+                new Product(new ProductId(4L), new ProductName("Last"),
+                        new ProductPrice(new BigDecimal("9.99")), new ProductAvailability(true))), products);
+    }
+
+    @Test
+    void retrievesProductDetailsConcurrently() {
+        CountDownLatch started = new CountDownLatch(2);
+        AtomicBoolean bothRequestsRanConcurrently = new AtomicBoolean(true);
+        when(productApi.getProductProductId(anyString())).thenAnswer(invocation -> {
+            String id = invocation.getArgument(0);
+            started.countDown();
+            if (!started.await(2, TimeUnit.SECONDS)) {
+                bothRequestsRanConcurrently.set(false);
+            }
+            return ResponseEntity.ok(productDetail(id, "Product " + id));
+        });
+
+        repository.findByIds(List.of(new ProductId(2L), new ProductId(3L)));
+
+        assertTrue(bothRequestsRanConcurrently.get(), "Product detail requests should overlap");
     }
 
     @Test
