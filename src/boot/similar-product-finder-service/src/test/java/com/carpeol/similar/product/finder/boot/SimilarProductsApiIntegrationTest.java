@@ -212,6 +212,26 @@ class SimilarProductsApiIntegrationTest {
     }
 
     @Test
+    void doesNotCacheNotFoundSimilarProductDetails() throws Exception {
+        when(externalProductApi.getProductProductId("21"))
+                .thenReturn(ResponseEntity.ok(product("21", "Shirt", "9.99", true)));
+        when(externalProductApi.getProductSimilarids("21"))
+                .thenReturn(ResponseEntity.ok(new LinkedHashSet<>(List.of("22"))));
+        when(externalProductApi.getProductProductId("22")).thenReturn(ResponseEntity.notFound().build());
+
+        for (int request = 0; request < 2; request++) {
+            mockMvc.perform(get("/product/21/similar"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.length()").value(0));
+        }
+
+        verify(externalProductApi, times(2)).getProductProductId("21");
+        verify(externalProductApi, times(1)).getProductSimilarids("21");
+        verify(externalProductApi, times(2)).getProductProductId("22");
+    }
+
+    @Test
     void exposesPrometheusMetricsThroughActuator() throws Exception {
         mockMvc.perform(get("/actuator/prometheus"))
                 .andExpect(status().isOk())

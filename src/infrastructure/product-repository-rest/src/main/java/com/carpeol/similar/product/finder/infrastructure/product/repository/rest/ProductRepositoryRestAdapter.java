@@ -16,6 +16,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClientException;
 
+import java.net.SocketTimeoutException;
+import java.net.http.HttpTimeoutException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -23,6 +25,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
 
 public class ProductRepositoryRestAdapter implements ProductRepository {
 
@@ -48,7 +51,7 @@ public class ProductRepositoryRestAdapter implements ProductRepository {
             LOGGER.error("Product API returned invalid details for productId={}", productId.value(), exception);
             throw new ProductRepositoryError("Invalid product details returned for ID: " + productId.value(), exception);
         } catch (RestClientException exception) {
-            LOGGER.error("Product details request failed for productId={}", productId.value(), exception);
+            logRestClientFailure("Product details request failed", productId, exception);
             throw new ProductRepositoryError("Error retrieving product details for ID: " + productId.value(), exception);
         }
     }
@@ -89,12 +92,13 @@ public class ProductRepositoryRestAdapter implements ProductRepository {
             throw new ProductRepositoryError(
                     "Invalid similar product IDs returned for ID: " + productId.value(), exception);
         } catch (RestClientException exception) {
-            LOGGER.error("Similar product IDs request failed for productId={}", productId.value(), exception);
+            logRestClientFailure("Similar product IDs request failed", productId, exception);
             throw new ProductRepositoryError("Error retrieving similar product IDs for ID: " + productId.value(), exception);
         }
     }
 
     @Override
+    @Cacheable(cacheNames = "not_found_products", key = "#p0", unless = "#result")
     public boolean existsById(ProductId productId) {
         try {
             ResponseEntity<ProductDetail> response = requireResponse(
@@ -106,9 +110,26 @@ public class ProductRepositoryRestAdapter implements ProductRepository {
             requireSuccessfulStatus(response, "checking existence", productId);
             return true;
         } catch (RestClientException exception) {
-            LOGGER.error("Product existence check failed for productId={}", productId.value(), exception);
+            logRestClientFailure("Product existence check failed", productId, exception);
             throw new ProductRepositoryError("Error checking existence for product ID: " + productId.value(), exception);
         }
+    }
+
+    private void logRestClientFailure(String message, ProductId productId, RestClientException exception) {
+        if (!isTimeout(exception)) {
+            LOGGER.error("{} for productId={}", message, productId.value(), exception);
+        }
+    }
+
+    private boolean isTimeout(Throwable exception) {
+        for (Throwable cause = exception; cause != null && cause != cause.getCause(); cause = cause.getCause()) {
+            if (cause instanceof HttpTimeoutException
+                    || cause instanceof SocketTimeoutException
+                    || cause instanceof TimeoutException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Product toDomainProduct(ProductDetail productDetail) {

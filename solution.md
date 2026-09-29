@@ -47,8 +47,9 @@ The REST client uses configurable connection and response timeouts. The defaults
 | `similar-products.api.read-timeout` | `SIMILAR_PRODUCTS_API_READ_TIMEOUT` | `3s` |
 | `similar-products.cache.enabled` | `SIMILAR_PRODUCTS_CACHE_ENABLED` | `true` |
 | `similar-products.cache.ttl` | `SIMILAR_PRODUCTS_CACHE_TTL` | `5m` |
+| `similar-products.cache.not-found-ttl` | `SIMILAR_PRODUCTS_CACHE_NOT_FOUND_TTL` | `1m` |
 
-The cache applies only to similar-product ID lookups and caches successful results until the configured TTL expires. Product details are deliberately not cached because they include availability, which can change between requests; caching them could return stale stock information. Failed requests are not cached.
+The similar-product ID cache stores successful ID lists for the configured TTL. The adapter also negatively caches `existsById` results when the upstream returns `404`, using a separate cache with a 1-minute TTL by default. This avoids repeated upstream checks for a missing requested product while limiting staleness if that product is subsequently created. This negative cache applies only to the initial existence check; missing details for individual similar products are still requested each time and omitted from the successful response. Successful existence checks, product details, and failed upstream requests are not cached, so availability is always fetched fresh.
 
 ### Resilience and error responses
 

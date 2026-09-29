@@ -46,7 +46,11 @@ public class RestExceptionHandler {
             case GATEWAY_TIMEOUT -> "The product service did not respond before the deadline.";
             default -> "The product service request failed.";
         };
-        LOGGER.error("Product repository request failed with status {}", status.value(), exception);
+        if (status == HttpStatus.GATEWAY_TIMEOUT) {
+            LOGGER.warn("Product repository request timed out: {}", exception.getMessage());
+        } else {
+            LOGGER.error("Product repository request failed with status {}", status.value(), exception);
+        }
         return problem(status, status.getReasonPhrase(), detail);
     }
 

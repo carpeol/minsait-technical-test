@@ -54,6 +54,9 @@ public class ProductRepositoryRestConfiguration {
 
         CaffeineCacheManager cacheManager = new CaffeineCacheManager("similar_product_ids");
         cacheManager.setCaffeine(Caffeine.newBuilder().expireAfterWrite(properties.ttl()));
+        cacheManager.registerCustomCache(
+                "not_found_products",
+                Caffeine.newBuilder().expireAfterWrite(properties.notFoundTtl()).build());
         return cacheManager;
     }
 
