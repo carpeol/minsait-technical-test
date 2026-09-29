@@ -12,7 +12,6 @@
     </parent>
 
     <artifactId>domain</artifactId>
-    <name>similar-product-finder-domain</name>
     <packaging>pom</packaging>
 
     <modules>
