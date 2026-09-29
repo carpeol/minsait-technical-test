@@ -35,6 +35,20 @@ mvn -pl src/boot/similar-product-finder-service -am spring-boot:run
 
 The application listens on `http://localhost:5000`. Its upstream endpoint defaults to `http://localhost:3001`; override it with `SIMILAR_PRODUCTS_API_BASE_URL` when needed.
 
+### Upstream client and cache properties
+
+The REST client uses configurable connection and response timeouts. Similar-product IDs are cached with Caffeine through Spring's `@Cacheable` abstraction; the cache can be disabled without changing the adapter behavior.
+
+| Property | Environment variable | Default |
+| --- | --- | --- |
+| `similar-products.api.base-url` | `SIMILAR_PRODUCTS_API_BASE_URL` | `http://localhost:3001` |
+| `similar-products.api.connect-timeout` | `SIMILAR_PRODUCTS_API_CONNECT_TIMEOUT` | `2s` |
+| `similar-products.api.read-timeout` | `SIMILAR_PRODUCTS_API_READ_TIMEOUT` | `5s` |
+| `similar-products.cache.enabled` | `SIMILAR_PRODUCTS_CACHE_ENABLED` | `true` |
+| `similar-products.cache.ttl` | `SIMILAR_PRODUCTS_CACHE_TTL` | `5m` |
+
+The cache applies only to similar-product ID lookups and caches successful results until the configured TTL expires. Failed requests are not cached.
+
 Useful endpoints:
 
 - API: `http://localhost:5000/product/1/similar`

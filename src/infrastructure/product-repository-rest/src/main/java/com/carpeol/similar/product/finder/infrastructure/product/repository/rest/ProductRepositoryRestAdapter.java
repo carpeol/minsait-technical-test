@@ -11,6 +11,7 @@ import com.carpeol.similar.product.finder.infrastructure.product.repository.rest
 import com.carpeol.similar.product.finder.infrastructure.product.repository.rest.generated.model.ProductDetail;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.HttpClientErrorException;
@@ -69,7 +70,13 @@ public class ProductRepositoryRestAdapter implements ProductRepository {
     }
 
     @Override
+    @Cacheable(cacheNames = "similar_product_ids", key = "#p0")
     public List<ProductId> findSimilarProductIds(ProductId productId) {
+        Objects.requireNonNull(productId, "productId must not be null");
+        return retrieveSimilarProductIds(productId);
+    }
+
+    private List<ProductId> retrieveSimilarProductIds(ProductId productId) {
         try {
             ResponseEntity<java.util.Set<String>> response = requireResponse(
                     productApi.getProductSimilarids(productId.value().toString()));
